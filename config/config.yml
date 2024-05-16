@@ -1,0 +1,19 @@
+config:
+  llm:
+    provider: ollama
+    ollama:
+      model: llama3:instruct
+      base_url: http://192.168.1.107:11434
+      stop: <|eot_id|>
+      temperature: 0.3
+  embeddings:
+    provider: ollama
+    ollama:
+      model: nomic-embed-text
+      dimensions: 768
+      base_url: http://192.168.1.107:11434
+  vector_store:
+    provider: faiss
+  db:
+    connection_string: sqlite:///assistant.db
+  profile: dev

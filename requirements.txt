@@ -1,0 +1,10 @@
+streamlit~=1.34.0
+sqlalchemy~=2.0.29
+pyyaml~=6.0.1
+langchain~=0.1.14
+click~=8.1.7
+langchain-community
+langchain-text-splitters
+faiss-cpu
+pdfplumber
+lxml

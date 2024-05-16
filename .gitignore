@@ -1,0 +1,6 @@
+.venv/*
+.idea/*
+.prod_env
+.dev_env
+*.db
+.faiss
