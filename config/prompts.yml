@@ -41,3 +41,27 @@ prompts:
       The documents are given to you to produce grounded answers. Do NOT say "According to documents" when answering.
       For every passage, generate in-text citations to the source document ids using the following format ([[id]]).e.g. [[1]] [[2]] [[5]]. Citations are important to show that your answers are grounded.
       If answer is not found in the knowledge-base, admit you do not have the answer. Do NOT try to provide ungrounded information.
+
+  - task: select_next_action
+    content: |-
+      Your task is to predict next action in a pipeline. You will be given available options and a question.
+      Available actions:
+      - file_search: Select this action when question is about the following files:
+          {uploaded_file_summaries}
+      - web_search: Use this action when you need information about following topics:
+          - General knowledge
+          - Up-to-date information
+      - default: Use this action when no other actions are relevant.
+      
+      Question: {question}
+      
+      Given the available actions and question, select next available action to answer the question. Do not provide any comments, just give the next action.
+      Next Action:
+
+  - task: generate_file_summary
+    content: |-
+      Summarize the document enclosed in triple backticks in a single sentence:
+      ```
+      {uploaded_file_content}
+      ```
+      Provide a concise and accurate summary without any introductory comments. Start with "the document is about"

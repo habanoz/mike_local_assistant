@@ -52,7 +52,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
     standalone_question_chain = (
         (
                 ChatPromptTemplate.from_template(standalone_question)
-                | kllm.get_rephrase_llm()
+                | kllm.get_deterministic_llm()
                 | StrOutputParser()
         )
         .with_config(run_name="StandaloneQuestion")
@@ -77,7 +77,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
 
     answer_chain = (
             answer_prompt
-            | kllm.get_answer_llm()
+            | kllm.get_creative_llm()
             | StrOutputParser()
     ).with_config(configurable={"llm_temperature": 0.4}, run_name="GenerateResponse")
 

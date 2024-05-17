@@ -1,5 +1,6 @@
 import streamlit as st
 
+from lib.chain.prompt_registry import PromptRegistry
 from lib.db.db_manager import DatabaseManager
 from lib.ingest.kembeddings import KEmbeddings
 from lib.ingest.kvectorstore import KVectorStore
@@ -35,3 +36,8 @@ def db_manager():
             raise ValueError("db.connection_string not provided!")
 
         return DatabaseManager(database_url=connection_string)
+
+
+@st.cache_resource
+def prompts_registry():
+    return PromptRegistry()

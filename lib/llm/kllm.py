@@ -6,11 +6,11 @@ from langchain_core.runnables import ConfigurableField
 class BaseKllm(ABC):
 
     @abstractmethod
-    def get_answer_llm(self):
+    def get_creative_llm(self):
         pass
 
     @abstractmethod
-    def get_rephrase_llm(self):
+    def get_deterministic_llm(self):
         pass
 
 
@@ -23,11 +23,11 @@ class Kllm:
         else:
             raise Exception("Unknown provider" + str(provider))
 
-    def get_answer_llm(self):
-        return self.provider.get_answer_llm()
+    def get_creative_llm(self):
+        return self.provider.get_creative_llm()
 
-    def get_rephrase_llm(self):
-        return self.provider.get_rephrase_llm()
+    def get_deterministic_llm(self):
+        return self.provider.get_deterministic_llm()
 
 
 class LocalKllmProvider(BaseKllm):
@@ -48,8 +48,8 @@ class LocalKllmProvider(BaseKllm):
             )
         )
 
-    def get_answer_llm(self):
+    def get_creative_llm(self):
         return self.chat_llm.with_config(configurable={"llm_temperature": self.temperature})
 
-    def get_rephrase_llm(self):
+    def get_deterministic_llm(self):
         return self.chat_llm

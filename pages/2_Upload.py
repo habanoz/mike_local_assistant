@@ -5,6 +5,7 @@ import streamlit as st
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from Home import show_sidebar
+from lib.chain.summary_chain import summarize
 from lib.db.model import FileChunk
 from lib.db.model.user_files import UserFile
 from lib.ingest.user_file_index_builders import UserFileIndexBuilder
@@ -49,9 +50,13 @@ def show():
             file_progress_bar = st.progress(0, text=progress_text)
 
             for i, file in enumerate(files_to_add):
+                content = file.getvalue().decode("utf-8", errors="replace")
+                summary = summarize(content)
+
                 user_file = UserFile(
                     id=uuid.uuid4(), name=file.name,
-                    content=file.getvalue().decode("utf-8", errors="replace")
+                    content=content,
+                    summary=summary
                 )
 
                 doc_ids, docs = builder.create_index_user_file(file)

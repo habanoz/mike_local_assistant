@@ -5,9 +5,8 @@ import streamlit as st
 
 from Home import show_sidebar
 from lib.chain.chains import get_chain
-from lib.chain.prompt_registry import PromptRegistry
 from lib.service.chat_history_service import ChatHistoryService
-from lib.st.cached import db_manager, config
+from lib.st.cached import db_manager, config, prompts_registry
 
 
 @st.cache_resource
@@ -20,11 +19,6 @@ def get_source_files():
         st.session_state["source_files"] = []
 
     return st.session_state["source_files"]
-
-
-@st.cache_resource
-def prompts_registry():
-    return PromptRegistry()
 
 
 def get_session_chain() -> Callable:

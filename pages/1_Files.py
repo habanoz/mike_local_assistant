@@ -1,6 +1,7 @@
 import streamlit as st
 
 from Home import show_sidebar
+from lib.db.model import UserFile
 from lib.service.file_chunk_service import FileChunkService
 from lib.service.session_service import SessionService
 from lib.service.user_file_service import UserFileService
@@ -26,6 +27,22 @@ def remove_file(file):
     st.rerun()
 
 
+@st.experimental_dialog("Edit")
+def edit_summary(user_file: UserFile):
+    edited_summary = st.text_area(label="Summary", value=user_file.summary)
+    if st.button("Save"):
+        if edited_summary != user_file.summary:
+            try:
+                file_service = UserFileService(db_manager())
+                file_service.update_summary(user_file.id, new_summary=edited_summary)
+                user_file.summary = edited_summary
+
+                st.rerun()
+            except Exception as e:
+                print(e)
+                st.warning("Updating summary failed!")
+
+
 # Main app
 def show():
     st.title('Files')
@@ -42,8 +59,14 @@ def show():
         with col1:
             st.text(user_file.name)
         with col2:
-            if st.button('❌', key=user_file.name):
+            if st.button('❌', key=str(user_file.name) + "remove"):
                 remove_file(user_file)
+        col1, col2 = st.columns([0.8, 0.2], gap="small")
+        with col1:
+            st.markdown(user_file.summary)
+        with col2:
+            if st.button('/', key=str(user_file.name) + "edit"):
+                edit_summary(user_file)
 
         if len(user_files) > 1 and index < len(user_files) - 1:
             st.markdown('<hr style="margin-top: 0px; margin-bottom: 0px;">', unsafe_allow_html=True)
