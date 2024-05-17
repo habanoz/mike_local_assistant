@@ -8,3 +8,5 @@ langchain-text-splitters
 faiss-cpu
 pdfplumber
 lxml
+duckduckgo-search
+bs4

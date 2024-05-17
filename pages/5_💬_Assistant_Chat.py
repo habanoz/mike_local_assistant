@@ -6,6 +6,7 @@ import streamlit as st
 from Home import show_sidebar
 from lib.chain.chains import get_chain
 from lib.service.chat_history_service import ChatHistoryService
+from lib.service.session_service import SessionService
 from lib.st.cached import db_manager, config, prompts_registry
 
 
@@ -25,7 +26,8 @@ def get_session_chain() -> Callable:
     if "session_chain" not in st.session_state:
         with st.spinner("Building..."):
             print("Building chat session...")
-            st.session_state["session_chain"] = get_chain(config(), prompts_registry(), get_source_files())
+            session_files = SessionService.get_session_files()
+            st.session_state["session_chain"] = get_chain(config(), prompts_registry(), session_files, get_source_files())
 
     return st.session_state["session_chain"]
 
