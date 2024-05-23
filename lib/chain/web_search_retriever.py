@@ -5,6 +5,7 @@ from typing import Any, List
 import aiohttp
 from bs4 import BeautifulSoup
 from duckduckgo_search import DDGS
+from duckduckgo_search.exceptions import TimeoutException
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
@@ -52,7 +53,12 @@ class WebSearchRetriever(BaseRetriever):
     ) -> List[Document]:
         ddgs = DDGS()
 
-        search_results = ddgs.text(query, max_results=max_results)
+        try:
+            search_results = ddgs.text(query, max_results=max_results)
+        except TimeoutException as e:
+            print("DDGS Timeout :", str(e))
+            return []
+
         docs_to_fetch = [{'title': result['title'], 'href': result['href']} for result in search_results]
 
         fetched_docs = asyncio.run(self.fetch_gather(docs_to_fetch))
