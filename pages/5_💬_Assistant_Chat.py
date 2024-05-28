@@ -7,9 +7,9 @@ from Home import show_sidebar
 from lib.chain.chains import get_chain
 from lib.service.chat_history_service import ChatHistoryService
 from lib.st.session_service import SessionService
-from lib.st.cached import db_manager, config, prompts_registry
+from lib.st.cached import db_manager, config, prompts_registry, user_file_vector_store
 from lib.utils.chain_output_sink import ChainOutputSink
-
+from lib.utils.chat_history_utils import get_files_to_keep
 
 @st.cache_resource
 def chat_history_service():
@@ -28,7 +28,9 @@ def get_session_chain() -> Callable:
         with st.spinner("Building..."):
             print("Building chat session...")
             session_files = SessionService.get_session_files()
-            st.session_state["session_chain"] = get_chain(config(), prompts_registry(), session_files, get_chain_sink())
+            st.session_state["session_chain"] = get_chain(
+                config(), prompts_registry(), session_files, user_file_vector_store(), get_chain_sink()
+            )
 
     return st.session_state["session_chain"]
 
@@ -51,6 +53,7 @@ def wait_failure():
     if st.button("Close"):
         st.rerun()
 
+
 @st.experimental_dialog("Debug Info", width="large")
 def show_debug(debug):
     tabs = st.tabs([d['name'].replace("prompt", "prmp")[:11] for d in debug])
@@ -58,6 +61,7 @@ def show_debug(debug):
         with tab:
             st.subheader(d['name'])
             st.write(d['content'])
+
 
 def main():
     if "busy" not in st.session_state:
@@ -77,13 +81,7 @@ def main():
             msg_content = msg_content.replace("[[", "`[").replace("]]", "]`")
             st.markdown(msg_content)
 
-            if "files" in message:
-                files = message["files"]
-                intents = [file for file in files if file['name'] in {"rephrased_question"}]
-                quotes = [file for file in files if file['name'] not in {"rephrased_question"}]
-
-                if intents: horizontal_file_buttons(intents, 3, "intents", mi)
-                if quotes: horizontal_file_buttons(quotes, 15, "files", mi)
+            show_buttons(message, 10, "files", mi)
 
     if prompt := st.chat_input():
 
@@ -103,7 +101,7 @@ def main():
         with st.chat_message('ai'):
             messages = st.session_state.messages
             question = messages[-1]['content']
-            chat_history = messages[:-1]
+            chat_history = messages[1:-1] # first item is introduction, we can skip it.
 
             answer_chain = get_session_chain()(question, chat_history)
 
@@ -125,34 +123,49 @@ def main():
                     msg = result["content"]
                 else:
                     msg = str(result)
-            files = get_source_files()
-            files_to_keep = []
-            for file in files:
-                name = file["name"]
-                if name in {"rephrased_question"} or f"[[{name}]]" in msg:
-                    files_to_keep.append(file)
 
-            chat_history_service().add_utterance(st.session_state["chat_id"], "ai", msg)
-            st.session_state.messages.append({"role": "ai", "content": msg, "files": files_to_keep})
+            chat_id = st.session_state["chat_id"]
+
+            files = get_chain_sink().get_and_clear_source_files_sink()
+            debug = get_chain_sink().get_and_clear_debug_sink()
+
+            files_to_keep = get_files_to_keep(files, msg)
+            chat_history_service().add_utterance(chat_id, "ai", msg, files=files_to_keep, debug=debug)
+
+            st.session_state.messages.append({"role": "ai", "content": msg, "files": files_to_keep, "debug": debug})
 
             st.session_state["busy"] = False
             st.rerun()
 
 
-def horizontal_file_buttons(files, max_cols, parent_name, parent_index):
+
+
+def show_buttons(message, max_cols, parent_name, parent_index):
     cols = st.columns(max_cols)
-    for i in range(len(cols)):
-        with cols[i]:
-            if len(files) > i:
-                file = files[i]
-                if st.button(file['name'], key=parent_name + str(parent_index) + str(i),
-                             disabled=st.session_state["busy"]):
-                    if st.session_state["busy"]:
-                        wait_failure()
-                    else:
-                        display_file(file['name'], file['content'], file['file'] if 'file' in file else None)
-            else:
-                st.empty()
+    if "files" in message:
+        files = message["files"]
+        for i in range(len(cols) - 1):
+            with cols[i]:
+                if len(files) > i:
+                    file = files[i]
+                    if st.button(file['name'], key=parent_name + str(parent_index) + str(i),
+                                 disabled=st.session_state["busy"]):
+                        if st.session_state["busy"]:
+                            wait_failure()
+                        else:
+                            display_file(file['name'], file['content'], file['file'] if 'file' in file else None)
+                else:
+                    st.empty()
+
+    if "debug" in message:
+        debug = message["debug"]
+        with cols[-1]:
+            if st.button("🪲", key=parent_name + str(parent_index) + str("d"),
+                         disabled=st.session_state["busy"]):
+                if st.session_state["busy"]:
+                    wait_failure()
+                else:
+                    show_debug(debug)
 
 
 if __name__ == '__main__':

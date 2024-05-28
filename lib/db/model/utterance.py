@@ -11,9 +11,9 @@ class Utterance(Base):
     chat_id = Column(UUID(as_uuid=True))
     type = Column(String, nullable=False)
     message = Column(String, nullable=False)
-    files = Column(JSON, nullable=False)
-    debug = Column(JSON, nullable=False)
-    alternatives = Column(JSON, nullable=False)
+    files = Column(JSON, nullable=True)
+    debug = Column(JSON, nullable=True)
+    alternatives = Column(JSON, nullable=True)
     created = Column(DateTime, nullable=False, default=datetime.now)
 
     def __repr__(self):

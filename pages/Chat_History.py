@@ -122,7 +122,7 @@ def show_buttons(utterance, max_cols, parent_name, parent_index):
 @st.experimental_dialog("Re-generate")
 def re_generate(utterance: Utterance):
     items: list[dict] = utterance.debug
-    answer_prompt = next(filter(lambda item: item['name'] == 'prompt_answer', items), None)
+    answer_prompt = next(filter(lambda item: 'prompt' in item['name'] and 'answer' in item['name'], items), None)
 
     messages = answer_prompt['content']
     prompt = ChatPromptTemplate.from_messages([(msg['role'], dequote(msg['content'])) for msg in messages])
@@ -148,10 +148,10 @@ def dequote(s):
 
 def get_re_generate_model():
     model_names = "llama3-8b"
-    model_name = st.selectbox("Select a model", (model_names))
+    model_name = st.selectbox("Select a model", [model_names])
     if st.button("Re-generate"):
         if model_name == "llama3-8b":
-            return Kllm(config()['llm']).get_creative_llm()
+            return model_name, Kllm(config()['llm']).get_creative_llm()
     return None, None
 
 
