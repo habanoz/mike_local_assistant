@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, String, UUID
+from sqlalchemy import Column, DateTime, String, UUID, JSON
 
 from lib.db.base import Base
 
@@ -11,6 +11,9 @@ class Utterance(Base):
     chat_id = Column(UUID(as_uuid=True))
     type = Column(String, nullable=False)
     message = Column(String, nullable=False)
+    files = Column(JSON, nullable=False)
+    debug = Column(JSON, nullable=False)
+    alternatives = Column(JSON, nullable=False)
     created = Column(DateTime, nullable=False, default=datetime.now)
 
     def __repr__(self):

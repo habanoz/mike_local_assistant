@@ -2,7 +2,10 @@ import os
 from typing import List, Any
 
 from langchain_community.docstore.in_memory import InMemoryDocstore
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.vectorstores import VectorStore
 
 from lib.ingest.kembeddings import KEmbeddings
 
@@ -22,7 +25,10 @@ class KVectorStore:
         return self.vector_store.get_user_file_retriever(k)
 
     def delete(self, ids: List[str]):
-        return self.vector_store.delete(ids)
+        try:
+            self.vector_store.delete(ids)
+        except ValueError as e:
+            print(e)
 
 
 class KFaissVectorStore:
@@ -64,7 +70,7 @@ class KFaissVectorStore:
 
         self.vector_store.save_local(self.store_path)
 
-    def get_user_file_retriever(self, k=10):
+    def get_user_file_retriever_without_scores(self, k=10):
         return self.vector_store.as_retriever(
             # search_type="similarity_score_threshold",
             # search_type="mmr",
@@ -75,5 +81,34 @@ class KFaissVectorStore:
                            }
         )
 
+    def get_user_file_retriever(self, k=10):
+        return FaissDocumentsWithScoreRetriever(
+            vector_store=self.vector_store,
+            search_kwargs={"k": k, "fetch_k": k * 5,
+                           'score_threshold': 0.40,
+                           # 'lambda_mult': 0.25 mmr diversity parameter
+                           }
+        )
+
     def delete(self, ids: List[str]):
         self.vector_store.delete(ids)
+
+
+class FaissDocumentsWithScoreRetriever(BaseRetriever):
+    vector_store: VectorStore
+    search_kwargs: dict
+
+    def _get_relevant_documents(
+            self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        docs_and_similarities = (
+            self.vector_store.similarity_search_with_score(
+                query, **self.search_kwargs
+            )
+        )
+
+        return [
+            Document(page_content=doc.page_content,
+                     metadata={'file_name': doc.metadata['file_name'], 'similarity': similarity})
+            for doc, similarity in docs_and_similarities
+        ]

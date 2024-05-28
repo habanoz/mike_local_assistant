@@ -5,13 +5,12 @@ from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.html import HTMLHeaderTextSplitter
-from lib.st.cached import user_file_vector_store
 import pdfplumber
 
 
 class UserFileIndexBuilder:
-    def __init__(self):
-        self.vector_store = user_file_vector_store()
+    def __init__(self, user_file_vector_store):
+        self.vector_store = user_file_vector_store
 
         self._add_start_index = True
         self._chunk_overlap = 0

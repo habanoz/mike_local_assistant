@@ -10,9 +10,9 @@ from lib.db.model import FileChunk
 from lib.db.model.user_files import UserFile
 from lib.ingest.user_file_index_builders import UserFileIndexBuilder
 from lib.service.file_chunk_service import FileChunkService
-from lib.service.session_service import SessionService
+from lib.st.session_service import SessionService
 from lib.service.user_file_service import UserFileService
-from lib.st.cached import db_manager
+from lib.st.cached import db_manager, user_file_vector_store
 
 
 def is_duplicate(file):
@@ -41,7 +41,7 @@ def show():
                 files_to_add.append(file)
 
         if files_to_add:
-            builder = UserFileIndexBuilder()
+            builder = UserFileIndexBuilder(user_file_vector_store())
 
             file_service = UserFileService(db_manager())
             chunk_service = FileChunkService(db_manager())

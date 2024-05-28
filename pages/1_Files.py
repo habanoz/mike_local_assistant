@@ -3,7 +3,7 @@ import streamlit as st
 from Home import show_sidebar
 from lib.db.model import UserFile
 from lib.service.file_chunk_service import FileChunkService
-from lib.service.session_service import SessionService
+from lib.st.session_service import SessionService
 from lib.service.user_file_service import UserFileService
 from lib.st.cached import db_manager, user_file_vector_store
 

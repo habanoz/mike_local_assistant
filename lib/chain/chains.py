@@ -19,33 +19,40 @@ from langchain_core.runnables import (
 from lib.chain.prompt_registry import PromptRegistry
 from lib.chain.web_search_retriever import WebSearchRetriever
 from lib.db.model import UserFile
+from lib.ingest.kvectorstore import KVectorStore
 from lib.llm.kllm import Kllm
-from lib.st.cached import user_file_vector_store, config, is_dev
+from lib.utils.chain_output_sink import ChainOutputSink
 
 wrapper = DuckDuckGoSearchAPIWrapper(max_results=5)
 search = DuckDuckGoSearchResults(api_wrapper=wrapper)
 
 
-def push_files_out(x, files_out: list):
-    files_out.clear()
+def push_files_out(x, chain_sink: ChainOutputSink):
+    if "rephrased_question" in x:
+        chain_sink.add_debug(name="rephrased_question", content=x["rephrased_question"])
 
-    if is_dev():
-        if "rephrased_question" in x:
-            files_out.append({"name": "rephrased_question", "content": x["rephrased_question"]})
+    if "docs" in x:
+        chain_sink.add_debug(name="files", content=[{
+            "content": doc.page_content,
+            "metadata": {k: str(v)[:100] for k, v in doc.metadata.items()}}
+            for doc in x["docs"]])
 
     if "docs" in x:
         for i, doc in enumerate(x["docs"], start=1):
-            file = None
-            if "file_name" in doc.metadata:
-                file = doc.metadata['file_name']
-            elif "url" in doc.metadata:
-                file = doc.metadata['url']
+            chain_sink.add_file(
+                name=str(i),
+                file=doc.metadata['file_name'] if "file_name" in doc.metadata else None,
+                content=doc.page_content)
 
-            files_out.append(
-                {"name": str(i),
-                 "file": file,
-                 "content": doc.page_content})
     return x
+
+
+def push_prompts_out(prompt, prompt_name, chain_sink: ChainOutputSink):
+    chain_sink.add_debug(
+        name="prompt_" + prompt_name,
+        content=[{"role": msg.type, "content": msg.content} for msg in prompt.messages]
+    )
+    return prompt
 
 
 def format_docs(docs: Sequence[Document]) -> str:
@@ -76,7 +83,7 @@ def build_next_action_chain(kllm: Kllm, registry: PromptRegistry, session_files:
 
 
 def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: PromptRegistry,
-                 session_files: List[UserFile], files_out: list) -> Runnable:
+                 session_files: List[UserFile], chain_sink: ChainOutputSink) -> Runnable:
     standalone_question = registry.prompts['standalone_question']
     generate_assistant_answer_main_system = registry.prompts['generate_assistant_answer_main_system']
     generate_assistant_answer_initial_ai = registry.prompts['generate_assistant_answer_initial_ai']
@@ -85,6 +92,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
     standalone_question_chain = (
         (
                 ChatPromptTemplate.from_template(standalone_question)
+                | RunnableLambda(lambda x: push_prompts_out(x, "standalone_question", chain_sink))
                 | kllm.get_deterministic_llm()
                 | StrOutputParser()
         )
@@ -127,12 +135,14 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
 
     grounded_response = (
             grounded_answer_prompt
+            | RunnableLambda(lambda x: push_prompts_out(x, "grounded_answer", chain_sink))
             | kllm.get_creative_llm()
             | StrOutputParser()
     ).with_config(run_name="GroundedResponse")
 
     ungrounded_response = (
             ungrounded_answer_prompt
+            | RunnableLambda(lambda x: push_prompts_out(x, "ungrounded_answer", chain_sink))
             | kllm.get_creative_llm()
             | StrOutputParser()
     ).with_config(run_name="UngroundedResponse")
@@ -141,7 +151,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
         (lambda x: x['next_action'] == "file_search", (
                 RunnablePassthrough.assign(docs=user_file_retrieval_chain)
                 .assign(context=lambda x: format_docs(x["docs"]))
-                | RunnableLambda(lambda x: push_files_out(x, files_out))
+                | RunnableLambda(lambda x: push_files_out(x, chain_sink))
                 | grounded_response
         )
          ),
@@ -149,7 +159,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
          (
                  RunnablePassthrough.assign(docs=web_search_chain)
                  .assign(context=lambda x: format_docs(x["docs"]))
-                 | RunnableLambda(lambda x: push_files_out(x, files_out))
+                 | RunnableLambda(lambda x: push_files_out(x, chain_sink))
                  | grounded_response
          )
          ),
@@ -170,12 +180,13 @@ def format_chat_history(chat_history: list):
     return "\n".join([f"- {turn.type}: {turn.content}" for turn in chat_history])
 
 
-def get_chain(config, registry: PromptRegistry, session_files: List[UserFile], files_out: list) -> Callable:
-    user_file_retriever = user_file_vector_store().get_user_file_retriever()
+def get_chain(config, registry: PromptRegistry, session_files: List[UserFile], user_file_vector_store: KVectorStore,
+              chain_sink: ChainOutputSink) -> Callable:
+    user_file_retriever = user_file_vector_store.get_user_file_retriever()
 
     kllm = Kllm(config['llm'])
 
-    chain = create_chain(kllm, user_file_retriever, registry, session_files, files_out)
+    chain = create_chain(kllm, user_file_retriever, registry, session_files, chain_sink)
 
     def add_message(question, chat_history):
         chat_history = chat_history[:10]
