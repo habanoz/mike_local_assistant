@@ -40,7 +40,10 @@ class KFaissVectorStore:
         self.store_path = os.path.join(self.store_root, self.store_dir.format(name=name))
 
         if os.path.exists(self.store_path):
-            self.vector_store = FAISS.load_local(self.store_path, self.embeddings, allow_dangerous_deserialization=True)
+            self.vector_store = FAISS.load_local(
+                self.store_path, self.embeddings, allow_dangerous_deserialization=True,
+                distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT
+            )
         else:
             self.vector_store = FAISS(
                 embedding_function=self.embeddings, index=faiss.IndexFlatIP(self.embeddings.dims),
