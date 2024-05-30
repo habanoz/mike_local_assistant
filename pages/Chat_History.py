@@ -151,7 +151,7 @@ def get_re_generate_model():
     model_name = st.selectbox("Select a model", [model_names])
     if st.button("Re-generate"):
         if model_name == "llama3-8b":
-            return model_name, Kllm(config()['llm']).get_creative_llm()
+            return model_name, Kllm(config()['llms']).get_answer_llm()
     return None, None
 
 

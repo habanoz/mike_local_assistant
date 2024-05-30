@@ -85,7 +85,7 @@ class KFaissVectorStore:
         return FaissDocumentsWithScoreRetriever(
             vector_store=self.vector_store,
             search_kwargs={"k": k, "fetch_k": k * 5,
-                           'score_threshold': 0.40,
+                           'score_threshold': 0.30,
                            # 'lambda_mult': 0.25 mmr diversity parameter
                            }
         )

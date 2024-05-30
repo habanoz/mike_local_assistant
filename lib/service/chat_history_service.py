@@ -1,7 +1,5 @@
 import uuid
-
 from sqlalchemy.orm import Query
-
 from lib.db.db_manager import DatabaseManager
 from lib.db.model.chat_session import ChatSession
 from lib.db.model.utterance import Utterance

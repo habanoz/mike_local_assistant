@@ -8,13 +8,13 @@ from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
-    MessagesPlaceholder, ChatPromptTemplate,
-)
+    MessagesPlaceholder, ChatPromptTemplate, )
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import (
     Runnable,
     RunnableLambda,
     RunnablePassthrough, RunnableBranch)
+from pydantic import BaseModel, Field
 
 from lib.chain.prompt_registry import PromptRegistry
 from lib.chain.web_search_retriever import WebSearchRetriever
@@ -28,9 +28,6 @@ search = DuckDuckGoSearchResults(api_wrapper=wrapper)
 
 
 def push_files_out(x, chain_sink: ChainOutputSink):
-    if "rephrased_question" in x:
-        chain_sink.add_debug(name="rephrased_question", content=x["rephrased_question"])
-
     if "docs" in x:
         chain_sink.add_debug(name="files", content=[{
             "content": doc.page_content,
@@ -64,20 +61,44 @@ def format_docs(docs: Sequence[Document]) -> str:
 
 
 def format_session_user_files(files: List[UserFile]):
-    return "\n".join([f"  - {file.name} : {file.summary}" for file in files])
+    return "\n".join([f"- Document {i} : {file.summary}" for i, file in enumerate(files, start=2)])
 
 
-def build_next_action_chain(kllm: Kllm, registry: PromptRegistry, session_files: List[UserFile]):
+def get_next_action_chain(kllm: Kllm, registry: PromptRegistry, session_files: List[UserFile],
+                          chain_sink: ChainOutputSink):
     select_next_action = registry.prompts['select_next_action']
+
+    prompt = ChatPromptTemplate.from_template(select_next_action)
+
     next_action_chain = (
         (
-                RunnablePassthrough.assign(question=lambda x: x['rephrased_question'])
-                | RunnablePassthrough.assign(uploaded_file_summaries=lambda x: format_session_user_files(session_files))
-                | ChatPromptTemplate.from_template(select_next_action)
-                | kllm.get_deterministic_llm()
+                RunnablePassthrough.assign(uploaded_file_summaries=lambda x: format_session_user_files(session_files))
+                | RunnablePassthrough.assign(question=itemgetter("rephrased_question"))
+                | prompt
+                | kllm.get_deterministic_llm_runnable("next_action", chain_sink)
                 | StrOutputParser()
         )
-        .with_config(run_name="SelectNextAction")
+        .with_config(run_name="next_action")
+    )
+    return next_action_chain
+
+
+def build_coding_chain(kllm: Kllm, registry: PromptRegistry, chain_sink: ChainOutputSink):
+    code_assistant_prompt = registry.prompts['coding_assistant_system']
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", code_assistant_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{question}"),
+        ]
+    )
+    next_action_chain = (
+        (
+                prompt
+                | kllm.get_code_llm_runnable("code_assistant", chain_sink)
+                | StrOutputParser()
+        )
+        .with_config(run_name="code_assistant")
     )
     return next_action_chain
 
@@ -92,8 +113,7 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
     standalone_question_chain = (
         (
                 ChatPromptTemplate.from_template(standalone_question)
-                | RunnableLambda(lambda x: push_prompts_out(x, "standalone_question", chain_sink))
-                | kllm.get_deterministic_llm()
+                | kllm.get_deterministic_llm_runnable("standalone_question", chain_sink)
                 | StrOutputParser()
         )
         .with_config(run_name="StandaloneQuestion")
@@ -135,41 +155,37 @@ def create_chain(kllm: Kllm, user_file_retriever: BaseRetriever, registry: Promp
 
     grounded_response = (
             grounded_answer_prompt
-            | RunnableLambda(lambda x: push_prompts_out(x, "grounded_answer", chain_sink))
-            | kllm.get_creative_llm()
+            | kllm.get_answer_llm_runnable("grounded_answer", chain_sink)
             | StrOutputParser()
     ).with_config(run_name="GroundedResponse")
 
     ungrounded_response = (
             ungrounded_answer_prompt
-            | RunnableLambda(lambda x: push_prompts_out(x, "ungrounded_answer", chain_sink))
-            | kllm.get_creative_llm()
+            | kllm.get_answer_llm_runnable("ungrounded_answer", chain_sink)
             | StrOutputParser()
     ).with_config(run_name="UngroundedResponse")
 
     generate_answer_chain = RunnableBranch(
-        (lambda x: x['next_action'] == "file_search", (
+        (lambda x: x['next_action'] == "db_lookup", (
                 RunnablePassthrough.assign(docs=user_file_retrieval_chain)
                 .assign(context=lambda x: format_docs(x["docs"]))
                 | RunnableLambda(lambda x: push_files_out(x, chain_sink))
                 | grounded_response
-        )
-         ),
+        )),
         (lambda x: x['next_action'] == "web_search",
          (
                  RunnablePassthrough.assign(docs=web_search_chain)
                  .assign(context=lambda x: format_docs(x["docs"]))
-                 | RunnableLambda(lambda x: push_files_out(x, chain_sink))
                  | grounded_response
-         )
-         ),
+         )),
+        (lambda x: x['next_action'] == "code_assistant", build_coding_chain(kllm, registry, chain_sink)),
         ungrounded_response  # default path
     )
 
     return (
             RunnablePassthrough.assign(chat_history_str=lambda x: format_chat_history(x["chat_history"]))
             | RunnablePassthrough.assign(rephrased_question=standalone_question_chain)
-            | RunnablePassthrough.assign(next_action=build_next_action_chain(kllm, registry, session_files))
+            | RunnablePassthrough.assign(next_action=get_next_action_chain(kllm, registry, session_files, chain_sink))
             | generate_answer_chain
     ).with_config(run_name="Assistant")
 
@@ -184,7 +200,7 @@ def get_chain(config, registry: PromptRegistry, session_files: List[UserFile], u
               chain_sink: ChainOutputSink) -> Callable:
     user_file_retriever = user_file_vector_store.get_user_file_retriever()
 
-    kllm = Kllm(config['llm'])
+    kllm = Kllm(config['llms'])
 
     chain = create_chain(kllm, user_file_retriever, registry, session_files, chain_sink)
 

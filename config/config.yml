@@ -1,17 +1,40 @@
 config:
-  llm:
-    provider: ollama
-    ollama:
+  llms:
+    answer:
+      provider: ollama
       model: llama3:instruct
       base_url: http://192.168.1.107:11434
-      stop: <|eot_id|>
+      stop:
+        - <|start_header_id|>
+        - <|end_header_id|>
+        - <|eot_id|>
       temperature: 0.3
+
+    deterministic:
+      provider: ollama
+      model: llama3:instruct
+      base_url: http://192.168.1.107:11434
+      stop:
+        - <|start_header_id|>
+        - <|end_header_id|>
+        - <|eot_id|>
+      temperature: 0.0
+
+    code:
+      provider: ollama
+      model: eramax/nxcode-cq-7b-orpo:q6
+      base_url: http://192.168.1.107:11434
+      stop:
+        - <|im_start|>
+        - <|im_end|>
+        - </s>
+      temperature: 0.3
+
   embeddings:
     provider: ollama
-    ollama:
-      model: nomic-embed-text
-      dimensions: 768
-      base_url: http://192.168.1.107:11434
+    model: nomic-embed-text
+    dimensions: 768
+    base_url: http://192.168.1.107:11434
   vector_store:
     provider: faiss
   db:

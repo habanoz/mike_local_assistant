@@ -24,7 +24,7 @@ class KEmbeddings(Embeddings):
     def __init__(self, task: str, config):
         provider = config['provider']
         if provider.lower() == "ollama":
-            self.embeddings, self.dims = ollama_embeddings(config[provider])
+            self.embeddings, self.dims = ollama_embeddings(config)
         else:
             raise Exception("Unknown embeddings!:" + str(provider))
 

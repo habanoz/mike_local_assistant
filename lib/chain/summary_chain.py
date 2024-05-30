@@ -26,7 +26,7 @@ def summarize(content: str, max_words=400):
     words = content.split()
     truncated_content = ' '.join(words[:max_words])
 
-    kllm = Kllm(config()['llm'])
+    kllm = Kllm(config()['llms'])
     prompt_registry = prompts_registry()
 
     chain = get_summary_chain(kllm, prompt_registry)

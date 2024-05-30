@@ -14,3 +14,22 @@ instructions:
       Sometimes I get confused and may make mistakes, I will provide sources for verification.
       
       How can I assist you?
+
+  - type: next_action_examples
+    content: |-
+      - Question: Summarize "Protein measurement with the folin phenol reagent" paper.
+        Action: web_search
+      - Question: Which region in Amazon Basin received most rain in 2023?
+        Action: db_lookup
+      - Question: Optimize following code
+        Action: code_assistant
+      - Question: Here is a riddle, what is the answer?
+        Action: default
+      - Question: What is the highest mountain in South America?
+        Action: web_search
+      - Question: Implement binary search in JS.
+        Action: code_assistant
+      - Question: Improve following text.
+        Action: default
+      - Question: Provide a summary of recent developments in Europe.
+        Action: web_search
