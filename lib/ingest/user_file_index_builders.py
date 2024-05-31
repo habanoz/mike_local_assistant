@@ -1,11 +1,11 @@
 from io import BytesIO
 from typing import List
 
+import pdfplumber
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_text_splitters.html import HTMLHeaderTextSplitter
-import pdfplumber
 
 
 class UserFileIndexBuilder:

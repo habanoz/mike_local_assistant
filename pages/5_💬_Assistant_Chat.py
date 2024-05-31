@@ -4,12 +4,13 @@ from collections.abc import Callable
 import streamlit as st
 
 from Home import show_sidebar
-from lib.chain.chains import get_chain
+from lib.chain.chains import get_main_chain_stream
 from lib.service.chat_history_service import ChatHistoryService
 from lib.st.session_service import SessionService
 from lib.st.cached import db_manager, config, prompts_registry, user_file_vector_store
 from lib.utils.chain_output_sink import ChainOutputSink
 from lib.utils.chat_history_utils import get_files_to_keep
+
 
 @st.cache_resource
 def chat_history_service():
@@ -28,7 +29,7 @@ def get_session_chain() -> Callable:
         with st.spinner("Building..."):
             print("Building chat session...")
             session_files = SessionService.get_session_files()
-            st.session_state["session_chain"] = get_chain(
+            st.session_state["session_chain"] = get_main_chain_stream(
                 config(), prompts_registry(), session_files, user_file_vector_store(), get_chain_sink()
             )
 
@@ -101,43 +102,33 @@ def main():
         with st.chat_message('ai'):
             messages = st.session_state.messages
             question = messages[-1]['content']
-            chat_history = messages[1:-1] # first item is introduction, we can skip it.
+            chat_history = messages[1:-1]  # first item is introduction, we can skip it.
 
-            answer_chain = get_session_chain()(question, chat_history)
+            answer_chain_stream = get_session_chain()(question, chat_history)
 
             with st.spinner("Generating response..."):
-                first_token = next(answer_chain)
+                first_token = next(answer_chain_stream)
 
             def generator(initial, answer_generator):
                 yield initial
                 for chunk in answer_generator:
                     yield chunk
 
-            result = st.write_stream(generator(first_token, answer_chain))
-
-            msg = result
-            if isinstance(result, dict):
-                if "output" in result:
-                    msg = result["output"]
-                elif "content" in result:
-                    msg = result["content"]
-                else:
-                    msg = str(result)
-
-            chat_id = st.session_state["chat_id"]
+            result = st.write_stream(generator(first_token, answer_chain_stream))
+            assert isinstance(result, str)
 
             files = get_chain_sink().get_and_clear_source_files_sink()
             debug = get_chain_sink().get_and_clear_debug_sink()
 
-            files_to_keep = get_files_to_keep(files, msg)
-            chat_history_service().add_utterance(chat_id, "ai", msg, files=files_to_keep, debug=debug)
+            files_to_keep = get_files_to_keep(files, result)
 
-            st.session_state.messages.append({"role": "ai", "content": msg, "files": files_to_keep, "debug": debug})
+            chat_id = st.session_state["chat_id"]
+            chat_history_service().add_utterance(chat_id, "ai", result, files=files_to_keep, debug=debug)
+
+            st.session_state.messages.append({"role": "ai", "content": result, "files": files_to_keep, "debug": debug})
 
             st.session_state["busy"] = False
             st.rerun()
-
-
 
 
 def show_buttons(message, max_cols, parent_name, parent_index):

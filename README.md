@@ -3,7 +3,7 @@
 Local assistant, Mike, is an AI assistant chatbot designed to run in your personal PC.
 Mike can help you to increase your productivity without any risk on your privacy.
 Upload your files for answers grounded on your documents. For general knowledge and up-to-date information, the
-assistant may make use of web search.
+assistant may make use of web search. For specialized coding tasks the assistant may make use of a code llm.
 
 ## Installation
 
@@ -20,11 +20,17 @@ Download a language model. Llama3 is recommended:
 ollama pull llama3
 ```
 
+Download a code model. eramax/nxcode-cq-7b-orpo:q6 is recommended:
+
+```bash
+ollama pull eramax/nxcode-cq-7b-orpo:q6
+```
+
 Download an embedding model.
 
 ```bash
 ollama pull nomic-embed-text
-```
+``` 
 
 Please note that language models run best at GPUs. If you do not have a GPU you can still use a language model, but it
 will be slow.
@@ -45,6 +51,12 @@ For linux environment you may need to give execute permission to the scripts.
 ```bash
 chmod +x install-linux.sh
 ```
+
+### Configuration
+
+Configuration file is `config/config.yml`. Edit it to configure options like models, database, etc.
+
+Prompts are `config/prompts.yml` file. You may edit the file for providing your own prompts.
 
 ### Launching Local Assistant
 

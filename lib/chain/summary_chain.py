@@ -2,7 +2,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from lib.chain.prompt_registry import PromptRegistry
-
 from lib.llm.kllm import Kllm
 from lib.st.cached import config, prompts_registry
 

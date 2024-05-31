@@ -1,11 +1,12 @@
 from typing import List
 
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from lib.db.model.user_files import UserFile
 from lib.st.cached import user_file_vector_store
-from langchain_community.document_loaders import PyPDFLoader
 
 
 class UserFileIndexBuilder:
