@@ -18,7 +18,7 @@ def is_dev():
 
 @st.cache_resource
 def user_file_embeddings() -> KEmbeddings:
-    return KEmbeddings("user_files", config()['embeddings'])
+    return KEmbeddings(config()['embeddings'])
 
 
 @st.cache_resource

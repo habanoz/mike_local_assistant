@@ -108,7 +108,33 @@ class FaissDocumentsWithScoreRetriever(BaseRetriever):
         )
 
         return [
-            Document(page_content=doc.page_content,
-                     metadata={'file_name': doc.metadata['file_name'], 'similarity': similarity})
+            Document(page_content=doc.page_content, metadata=doc.metadata | {'similarity': similarity})
             for doc, similarity in docs_and_similarities
         ]
+
+
+class KFaissTemporaryVectorStore:
+    def __init__(self, embeddings: KEmbeddings):
+        from langchain_community.vectorstores.faiss import DistanceStrategy
+        from langchain_community.vectorstores.faiss import FAISS
+        import faiss
+
+        self.embeddings = embeddings
+
+        self.vector_store = FAISS(
+            embedding_function=self.embeddings, index=faiss.IndexFlatIP(self.embeddings.dims),
+            docstore=InMemoryDocstore(), index_to_docstore_id={},
+            distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT
+        )
+
+    def add_documents(self, documents: List[Document], **kwargs: Any):
+        self.vector_store.add_documents(documents, **kwargs)
+
+    def as_retriever(self, k=10, score_threshold=0.3):
+        return FaissDocumentsWithScoreRetriever(
+            vector_store=self.vector_store,
+            search_kwargs={"k": k, "fetch_k": k * 5, 'score_threshold': score_threshold}
+        )
+
+    def destroy(self):
+        del self.vector_store

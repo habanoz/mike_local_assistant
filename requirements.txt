@@ -9,4 +9,4 @@ faiss-cpu
 pdfplumber
 lxml
 duckduckgo-search
-bs4
+html2text

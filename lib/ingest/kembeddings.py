@@ -21,7 +21,7 @@ def get_file_cached_embeddings(task, provider, model, backing_embeddings) -> Emb
 
 
 class KEmbeddings(Embeddings):
-    def __init__(self, task: str, config):
+    def __init__(self, config):
         provider = config['provider']
         if provider.lower() == "ollama":
             self.embeddings, self.dims = ollama_embeddings(config)

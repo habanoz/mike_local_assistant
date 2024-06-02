@@ -11,8 +11,10 @@ from langchain_core.runnables import (
 from lib.chain.code_chain import build_coding_chain
 from lib.chain.prompt_registry import PromptRegistry
 from lib.chain.utils import push_files_out, format_docs
-from lib.chain.web_search_retriever import WebSearchRetriever
+from lib.chain.advanced_web_search_retriever import WebSearchRetriever
+from lib.ingest.kembeddings import KEmbeddings
 from lib.llm.kllm import Kllm
+from lib.st.cached import user_file_embeddings
 from lib.utils.chain_output_sink import ChainOutputSink
 
 
@@ -35,6 +37,7 @@ def get_grounded_answer_chain(registry: PromptRegistry, chain_sink, kllm):
             | StrOutputParser()
     ).with_config(run_name="GroundedResponse")
     return grounded_response
+
 
 def get_ungrounded_answer_chain(registry: PromptRegistry, chain_sink: ChainOutputSink, kllm: Kllm):
     answer_system = registry.prompts['answer_system']
@@ -68,7 +71,7 @@ def get_answer_chain(chain_sink: ChainOutputSink, kllm: Kllm, registry: PromptRe
     web_search_chain = (
         (
                 RunnableLambda(itemgetter("rephrased_question"))
-                | WebSearchRetriever().with_config(run_name="WebSearchRetriever")
+                | WebSearchRetriever(embeddings=user_file_embeddings()).with_config(run_name="WebSearchRetriever")
         )
         .with_config(run_name="WebSearchChain")
     )
